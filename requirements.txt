@@ -4,22 +4,24 @@ google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.0
 google-auth==2.26.2
 
-# Face recognition - Using DeepFace (no CMake needed!)
+# Face recognition
 deepface==0.0.79
 tf-keras==2.16.0
-# opencv-python-headless==4.9.0.80  # DeepFace includes this
-Pillow==10.1.0
+opencv-python==4.8.1.78
 
-# Web frameworks
-fastapi==0.111.1
-uvicorn[standard]==0.30.3
-streamlit==1.35.0
+# Image processing
+Pillow==10.1.0
+imagehash==4.3.1
 
 # Utilities
 python-dotenv==1.0.1
-requests==2.32.3
-python-multipart==0.0.9
+requests==2.31.0
+tqdm==4.66.1
 
-# Optional: LLM APIs
-openai==1.35.14
-groq==0.11.0
+# Web framework
+fastapi==0.104.1
+uvicorn==0.24.0
+streamlit==1.29.0
+
+# Data processing
+pandas==2.1.3
