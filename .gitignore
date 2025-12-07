@@ -1,0 +1,24 @@
+# Credentials
+credentials.json
+token.json
+.env
+
+# Known faces
+known_faces/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Temporary files
+downloads/
+*.log
+
+# IDE
+.vscode/
+.idea/
