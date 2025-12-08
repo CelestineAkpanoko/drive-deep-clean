@@ -31,6 +31,9 @@ DOWNLOADS_DIR.mkdir(exist_ok=True)
 TEMP_DIR = BASE_DIR / 'temp'
 TEMP_DIR.mkdir(exist_ok=True)
 
+DUPLICATES_DUMP_DIR = BASE_DIR / 'duplicates_dump'  # NEW: For dumping duplicates
+DUPLICATES_DUMP_DIR.mkdir(exist_ok=True)
+
 # Settings
 MIN_FILE_SIZE_MB = int(os.getenv('MIN_FILE_SIZE_MB', 5))
 MIN_FILE_SIZE_BYTES = MIN_FILE_SIZE_MB * 1024 * 1024
@@ -48,6 +51,10 @@ GMAIL_CATEGORIES_TO_CLEAN = os.getenv(
     'GMAIL_CATEGORIES_TO_CLEAN', 
     'SPAM,CATEGORY_PROMOTIONS,CATEGORY_SOCIAL'
 ).split(',')
+
+# Optional: OpenAI/Groq API keys (for advanced features)
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
 # File types
 IMAGE_MIMETYPES = [

@@ -1,24 +1,36 @@
 # Credentials
 credentials.json
 token.json
-.env
+*.pickle
 
-# Known faces
+# Environment
+.env
+ddc-env/
+venv/
+
+# Downloads
+downloads/
+temp/
 known_faces/
+duplicates_dump/  # NEW
+
+# Reports
+*_report.txt
+duplicate_report.txt
 
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
+*.pyo
+*.pyd
 .Python
-venv/
-env/
-
-# Temporary files
-downloads/
-*.log
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
