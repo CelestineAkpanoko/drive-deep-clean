@@ -4,7 +4,8 @@ from tqdm import tqdm
 from drive_service import DriveCleanupService
 from drive_duplicates import DriveDuplicateFinder
 from drive_similar_images import SimilarImageFinder
-from config import PROJECT_NAME, VERSION, SIMILARITY_THRESHOLD
+from gmail_service import GmailAttachmentScanner
+from config import PROJECT_NAME, VERSION, SIMILARITY_THRESHOLD, GMAIL_MIN_ATTACHMENT_SIZE_MB
 
 
 def scan_drive(min_size_mb: int):
@@ -25,36 +26,30 @@ def find_duplicates(dump: bool = False):
     
     finder = DriveDuplicateFinder()
     
-    # Scan Drive
     files = finder.list_all_files()
     
     if not files:
         print("❌ No files found in Drive")
         return
     
-    # Find duplicates
     duplicates = finder.find_duplicates(files)
     
     if not duplicates:
         print("\n✅ No duplicates found! Your Drive is clean.")
         return
     
-    # Calculate stats
     stats = finder.calculate_wasted_space(duplicates)
     
-    # Show summary
     print(f"\n📊 RESULTS:")
     print(f"   Duplicate files: {stats['total_duplicate_files']:,}")
     print(f"   Duplicate groups: {stats['total_duplicate_groups']:,}")
     print(f"   Wasted space: {stats['total_wasted_gb']:.2f} GB\n")
     
-    # Show top 10
     print("🔝 TOP 10 SPACE WASTERS:")
     for i, group in enumerate(stats['duplicate_groups'][:10], 1):
         print(f"{i}. {group['filename']}")
         print(f"   {group['num_copies']} copies × {group['file_size_mb']:.1f} MB = {group['wasted_mb']:.1f} MB wasted")
     
-    # Generate full report
     report = finder.generate_report(stats)
     report_file = 'duplicate_report.txt'
     with open(report_file, 'w', encoding='utf-8') as f:
@@ -62,7 +57,6 @@ def find_duplicates(dump: bool = False):
     
     print(f"\n💾 Full report saved to: {report_file}")
     
-    # Optional: Dump duplicates to local folder AND DELETE FROM DRIVE
     if dump:
         print("\n" + "=" * 70)
         print("⚠️  DUMP & DELETE MODE")
@@ -72,8 +66,6 @@ def find_duplicates(dump: bool = False):
         print("   2. DELETE duplicate files from Google Drive (keeps oldest copy)")
         print("   3. Skip shared files (no permission to delete)")
         print("   4. Free up space immediately\n")
-        print("💡 The oldest copy of each file will be KEPT in Drive.")
-        print("💡 All other copies will be DOWNLOADED then DELETED.\n")
         
         confirm = input("⚠️  Are you SURE you want to proceed? Type 'YES' to confirm: ")
         
@@ -85,7 +77,6 @@ def find_duplicates(dump: bool = False):
             total_skipped = 0
             total_failed = 0
             
-            # Single progress bar for all groups
             pbar = tqdm(stats['duplicate_groups'], 
                        desc="Dumping & deleting", 
                        ncols=80,
@@ -107,23 +98,11 @@ def find_duplicates(dump: bool = False):
             print(f"   Groups processed: {len(stats['duplicate_groups'])}")
             print(f"   Files deleted from Drive: {total_deleted}")
             print(f"   Files kept in Drive: {len(stats['duplicate_groups'])}")
-            print(f"   Files skipped (no permission): {total_skipped}")
-            print(f"   Files failed: {total_failed}")
+            print(f"   Files skipped: {total_skipped}")
             print(f"   Space freed: {total_freed_mb:.2f} MB ({total_freed_mb/1024:.2f} GB)")
-            print(f"   📂 Local backup: duplicates_dump/")
-            
-            if total_skipped > 0:
-                print(f"\n⚠️  NOTE: {total_skipped} files were skipped (shared files you don't own)")
-                print("   These files were downloaded but NOT deleted from Drive")
-            
-            print(f"\n💡 Next steps:")
-            print(f"   1. Review dumped files in 'duplicates_dump/' folder")
-            print(f"   2. Check README.txt in each subfolder for details")
-            print(f"   3. Delete local copies if you don't need them")
-            print(f"   4. Check your Drive storage - it should be lower now!")
             print("=" * 70)
         else:
-            print("❌ Cancelled - No files were deleted")
+            print("❌ Cancelled")
 
 
 def find_similar_images(threshold: float, dump: bool = False):
@@ -138,7 +117,6 @@ def find_similar_images(threshold: float, dump: bool = False):
         print("❌ No images found in Drive")
         return
     
-    # NO LIMIT - Process all images
     print(f"🔍 Processing all {len(images)} images (this may take a while)...\n")
     
     hashes = finder.compute_hashes_for_images(images)
@@ -174,65 +152,115 @@ def find_similar_images(threshold: float, dump: bool = False):
     
     print(f"\n💾 Full report saved to: {report_file}")
     
-    # Optional: Dump similar images AND DELETE FROM DRIVE
     if dump:
         print("\n" + "=" * 70)
         print("⚠️  DUMP & DELETE MODE - SIMILAR IMAGES")
         print("=" * 70)
-        print("\n🚨 WARNING: This will:")
-        print("   1. Download similar images to local 'duplicates_dump' folder")
-        print("   2. DELETE similar images from Google Drive (keeps largest/best quality)")
-        print("   3. Skip shared files (no permission to delete)")
-        print("   4. Free up space immediately\n")
-        print("💡 The LARGEST (best quality) image in each group will be KEPT in Drive.")
-        print("💡 All other similar images will be DOWNLOADED then DELETED.\n")
         
-        confirm = input("⚠️  Are you SURE you want to proceed? Type 'YES' to confirm: ")
+        confirm = input("⚠️  Proceed? Type 'YES': ")
         
         if confirm == 'YES':
-            print("\n📥 Processing similar images...\n")
+            print("\n📥 Processing...\n")
             
             total_freed_mb = 0
             total_deleted = 0
-            total_skipped = 0
-            total_failed = 0
             
             pbar = tqdm(stats['similar_groups'], 
-                       desc="Dumping & deleting similar", 
+                       desc="Dumping & deleting", 
                        ncols=80,
-                       bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]')
+                       bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}')
             
             for group in pbar:
                 result = finder.dump_and_delete_similar(group, keep_index=0)
                 total_freed_mb += result['space_freed_mb']
                 total_deleted += len(result['deleted_from_drive'])
-                total_skipped += len(result['skipped_no_permission'])
-                total_failed += len(result['failed'])
+            
+            pbar.close()
+            
+            print("\n✅ COMPLETE")
+            print(f"Space freed: {total_freed_mb:.2f} MB")
+        else:
+            print("❌ Cancelled")
+
+
+def scan_gmail_attachments(min_size_mb: int, max_emails: int, dump: bool = False):
+    """Scan Gmail for large attachments."""
+    print(f"\n📧 Scanning Gmail for attachments > {min_size_mb}MB...\n")
+    
+    scanner = GmailAttachmentScanner(min_size_mb=min_size_mb)
+    
+    emails = scanner.search_emails_with_large_attachments(max_results=max_emails)
+    
+    if not emails:
+        print("✅ No large attachments found!")
+        return
+    
+    stats = scanner.calculate_stats(emails)
+    
+    print(f"\n📊 RESULTS:")
+    print(f"   Emails with attachments: {stats['total_emails']:,}")
+    print(f"   Total attachments: {stats['total_attachments']:,}")
+    print(f"   Total size: {stats['total_size_gb']:.2f} GB\n")
+    
+    print("📁 TOP 5 FILE TYPES:")
+    for i, (mime_type, data) in enumerate(sorted(stats['by_type'].items(), 
+                                                  key=lambda x: x[1]['size_bytes'], 
+                                                  reverse=True)[:5], 1):
+        print(f"{i}. {mime_type}")
+        print(f"   {data['count']} files = {data['size_mb']:.1f} MB")
+    
+    print("\n🔝 TOP 5 LARGEST EMAILS:")
+    for i, email in enumerate(stats['emails_sorted'][:5], 1):
+        print(f"{i}. {email['subject'][:50]}")
+        print(f"   {email['num_attachments']} attachments = {email['total_attachment_size_mb']:.1f} MB")
+    
+    report = scanner.generate_report(stats)
+    report_file = 'gmail_attachments_report.txt'
+    with open(report_file, 'w', encoding='utf-8') as f:
+        f.write(report)
+    
+    print(f"\n💾 Full report saved to: {report_file}")
+    
+    if dump:
+        print("\n" + "=" * 70)
+        print("⚠️  DUMP & DELETE MODE - GMAIL")
+        print("=" * 70)
+        print("\n🚨 WARNING: This will:")
+        print("   1. Download attachments to local 'gmail_attachments_dump' folder")
+        print("   2. MOVE emails to TRASH (not permanent delete)")
+        print("   3. Free up Gmail storage immediately\n")
+        
+        confirm = input("⚠️  Are you SURE? Type 'YES': ")
+        
+        if confirm == 'YES':
+            print("\n📥 Processing emails...\n")
+            
+            total_freed_mb = 0
+            total_deleted = 0
+            
+            pbar = tqdm(stats['emails_sorted'], 
+                       desc="Dumping & deleting", 
+                       ncols=80,
+                       bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}')
+            
+            for email in pbar:
+                result = scanner.dump_and_delete_emails(email)
+                total_freed_mb += result['space_freed_mb']
+                if result['deleted']:
+                    total_deleted += 1
             
             pbar.close()
             
             print("\n" + "=" * 70)
-            print("✅ DUMP & DELETE COMPLETE - SIMILAR IMAGES")
+            print("✅ COMPLETE")
             print("=" * 70)
             print(f"\n📊 RESULTS:")
-            print(f"   Groups processed: {len(stats['similar_groups'])}")
-            print(f"   Files deleted from Drive: {total_deleted}")
-            print(f"   Files kept in Drive: {len(stats['similar_groups'])}")
-            print(f"   Files skipped (no permission): {total_skipped}")
-            print(f"   Files failed: {total_failed}")
+            print(f"   Emails moved to trash: {total_deleted}")
             print(f"   Space freed: {total_freed_mb:.2f} MB ({total_freed_mb/1024:.2f} GB)")
-            print(f"   📂 Local backup: duplicates_dump/")
-            
-            if total_skipped > 0:
-                print(f"\n⚠️  NOTE: {total_skipped} files were skipped (shared files you don't own)")
-            
-            print(f"\n💡 Next steps:")
-            print(f"   1. Review dumped files in 'duplicates_dump/' folder")
-            print(f"   2. Check README.txt in each subfolder for details")
-            print(f"   3. Delete local copies if you don't need them")
+            print(f"   📂 Attachments backed up: gmail_attachments_dump/")
             print("=" * 70)
         else:
-            print("❌ Cancelled - No files were deleted")
+            print("❌ Cancelled")
 
 
 def main():
@@ -246,6 +274,8 @@ Examples:
   python cli.py drive-duplicates --dump           # Delete duplicates from Drive
   python cli.py drive-similar --threshold 0.90    # Find similar images (read-only)
   python cli.py drive-similar --threshold 0.90 --dump  # Delete similar images
+  python cli.py gmail-scan --min-size 5          # Scan Gmail for large attachments
+  python cli.py gmail-scan --min-size 5 --dump   # Dump attachments and delete emails
         """
     )
     
@@ -265,6 +295,12 @@ Examples:
     drive_similar_parser.add_argument('--dump', action='store_true', 
                                      help='⚠️  Download + DELETE similar images (keeps best quality)')
     
+    # Gmail scan
+    gmail_scan_parser = subparsers.add_parser('gmail-scan', help='Scan Gmail for large attachments')
+    gmail_scan_parser.add_argument('--min-size', type=int, default=GMAIL_MIN_ATTACHMENT_SIZE_MB)
+    gmail_scan_parser.add_argument('--max-emails', type=int, default=500)
+    gmail_scan_parser.add_argument('--dump', action='store_true')
+    
     args = parser.parse_args()
     
     if args.command == 'drive-scan':
@@ -273,6 +309,8 @@ Examples:
         find_duplicates(dump=args.dump)
     elif args.command == 'drive-similar':
         find_similar_images(args.threshold, dump=args.dump)
+    elif args.command == 'gmail-scan':
+        scan_gmail_attachments(args.min_size, args.max_emails, dump=args.dump)
     else:
         parser.print_help()
 

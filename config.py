@@ -56,15 +56,23 @@ GMAIL_CATEGORIES_TO_CLEAN = os.getenv(
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
-# File types
+# File type filters
 IMAGE_MIMETYPES = [
-    'image/jpeg', 'image/jpg', 'image/png', 
-    'image/gif', 'image/bmp', 'image/webp', 'image/heic'
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/bmp',
+    'image/webp',
+    'image/tiff'
 ]
 
 VIDEO_MIMETYPES = [
-    'video/mp4', 'video/mpeg', 'video/quicktime',
-    'video/x-msvideo', 'video/x-matroska', 'video/webm'
+    'video/mp4',
+    'video/mpeg',
+    'video/quicktime',
+    'video/x-msvideo',
+    'video/x-matroska',
+    'video/webm'
 ]
 
 DOCUMENT_MIMETYPES = [
@@ -72,7 +80,27 @@ DOCUMENT_MIMETYPES = [
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 ]
+
+# Similarity settings
+SIMILARITY_THRESHOLD = 0.90
+
+# Gmail settings
+GMAIL_MIN_ATTACHMENT_SIZE_MB = 5
+GMAIL_MAX_RESULTS = 500
+
+# Directory settings
+BASE_DIR = Path(__file__).parent
+DUPLICATES_DUMP_DIR = BASE_DIR / 'duplicates_dump'
+GMAIL_DUMP_DIR = BASE_DIR / 'gmail_attachments_dump'
+TEMP_DIR = BASE_DIR / 'temp'
+
+# Create directories
+DUPLICATES_DUMP_DIR.mkdir(exist_ok=True)
+GMAIL_DUMP_DIR.mkdir(exist_ok=True)
+TEMP_DIR.mkdir(exist_ok=True)
 
 print(f"✅ {PROJECT_NAME} v{VERSION} - Config loaded")
